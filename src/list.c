@@ -11,6 +11,30 @@ int clamb_index(int index)
     return (index < 0) ? 0 : (index >= size) ? size - 1
                                              : index;
 }
+void increase_size()
+{
+    pthread_mutex_lock(&mutex_size);
+    size++;
+    pthread_mutex_unlock(&mutex_size);
+}
+
+void decrease_size()
+{
+    pthread_mutex_lock(&mutex_size);
+    size--;
+    pthread_mutex_unlock(&mutex_size);
+}
+
+void print_list(int_ll_t *list)
+{
+    int_ll_t *node = list;
+    for (int i = 0; i < size + 1; i++)
+    {
+        printf("%d ", node->value);
+        node = node->next;
+    }
+    printf("\n");
+}
 
 int_ll_t *make_node(int value, int_ll_t *next)
 {
@@ -32,6 +56,8 @@ int init_list(int_ll_t *list)
 int free_list(int_ll_t *list)
 {
     pthread_mutex_lock(&list->mutex);
+    // printf("Liberando la lista con tamanno %d\n", size);
+    // print_list(list);
 
     int_ll_t *node = list;
     while (node != NULL)
@@ -43,7 +69,7 @@ int free_list(int_ll_t *list)
     }
     size = 0;
     pthread_mutex_unlock(&list->mutex);
-
+    // exit(0);
     return 0;
 }
 
@@ -58,6 +84,9 @@ int index_list(int_ll_t *list, int index, int *out_value)
 {
     pthread_mutex_lock(&list->mutex);
 
+    // printf("Getting el indice %d, tamanno de la lista %d\n", index, size);
+    // print_list(list);
+
     if (size == 0)
         *out_value = 0;
 
@@ -69,7 +98,7 @@ int index_list(int_ll_t *list, int index, int *out_value)
 
         *out_value = node->value;
     }
-
+    // printf("Obtenido %d\n", *out_value);
     pthread_mutex_unlock(&list->mutex);
     return 0;
 }
@@ -77,8 +106,10 @@ int index_list(int_ll_t *list, int index, int *out_value)
 // Insert element at index
 int insert_list(int_ll_t *list, int index, int value)
 {
-    pthread_mutex_lock(&list->mutex);
 
+    pthread_mutex_lock(&list->mutex);
+    // printf("Insertando %d en el indice %d, tamanno de la lista %d\n", value, index, size);
+    // print_list(list);
     int_ll_t *node = list;
 
     for (int i = 0; i < clamb_index(index); i++)
@@ -86,7 +117,9 @@ int insert_list(int_ll_t *list, int index, int value)
 
     node->next = make_node(value, node->next);
     node->next->value = value;
-    size++;
+    increase_size();
+    // print_list(list);
+    // printf("Insertado %d en el indice %d, tamanno de la lista %d\n", value, index, size);
 
     pthread_mutex_unlock(&list->mutex);
     return 0;
@@ -96,6 +129,9 @@ int insert_list(int_ll_t *list, int index, int value)
 int remove_list(int_ll_t *list, int index, int *out_value)
 {
     pthread_mutex_lock(&list->mutex);
+
+    // printf("Removiendo el indice %d, tamanno de la lista %d\n", index, size);
+    // print_list(list);
 
     if (size <= 0)
         *out_value = 1;
@@ -113,7 +149,7 @@ int remove_list(int_ll_t *list, int index, int *out_value)
         pthread_mutex_destroy(&temp->mutex);
         free(temp);
 
-        size--;
+        decrease_size();
     }
 
     pthread_mutex_unlock(&list->mutex);
