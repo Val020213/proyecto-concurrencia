@@ -1,10 +1,40 @@
 #include "list.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <pthread.h>
+
+// Lock
+static inline void lock_init(volatile ptlock_t *l)
+{
+    *l = (int)0;
+}
+
+static inline void lock_destroy(volatile ptlock_t *l)
+{
+    /* do nothing */
+}
+
+static inline int lock_lock(volatile ptlock_t *l)
+{
+    while (*l)
+        ;
+    *l = (int)1;
+    return 0;
+}
+
+static inline int lock_unlock(volatile ptlock_t *l)
+{
+    *l = (int)0;
+    return 0;
+}
+
+#define INIT(l) lock_init(l)
+#define DESTROY(l) lock_destroy(l)
+#define LOCK(l) lock_lock(l)
+#define UNLOCK(l) lock_unlock(l)
+//
 
 int size = 0;
-pthread_mutex_t mutex_size = PTHREAD_MUTEX_INITIALIZER;
+ptlock_t mutex_size = 0;
 
 int clamb_index(int index)
 {
@@ -13,16 +43,16 @@ int clamb_index(int index)
 }
 void increase_size()
 {
-    pthread_mutex_lock(&mutex_size);
+    LOCK(&mutex_size);
     size++;
-    pthread_mutex_unlock(&mutex_size);
+    UNLOCK(&mutex_size);
 }
 
 void decrease_size()
 {
-    pthread_mutex_lock(&mutex_size);
+    LOCK(&mutex_size);
     size--;
-    pthread_mutex_unlock(&mutex_size);
+    UNLOCK(&mutex_size);
 }
 
 void print_list(int_ll_t *list)
@@ -41,13 +71,16 @@ int_ll_t *make_node(int value, int_ll_t *next)
     int_ll_t *node = (int_ll_t *)malloc(sizeof(int_ll_t));
     node->value = value;
     node->next = next;
-    pthread_mutex_init(&node->mutex, NULL);
+    node->mutex = (ptlock_t *)malloc(sizeof(ptlock_t));
+    INIT(node->mutex);
     return node;
 }
 
 // Init list structure
 int init_list(int_ll_t *list)
 {
+    size = 0;
+    INIT(&mutex_size);
     list = make_node(1, NULL);
     return 0;
 }
@@ -55,7 +88,7 @@ int init_list(int_ll_t *list)
 // Free list structure
 int free_list(int_ll_t *list)
 {
-    pthread_mutex_lock(&list->mutex);
+    LOCK(list->mutex);
     // printf("Liberando la lista con tamanno %d\n", size);
     // print_list(list);
 
@@ -63,12 +96,13 @@ int free_list(int_ll_t *list)
     while (node != NULL)
     {
         int_ll_t *next = node->next;
-        pthread_mutex_destroy(&node->mutex);
+        DESTROY(node->mutex);
+        free(node->mutex);
         free(node);
         node = next;
     }
     size = 0;
-    pthread_mutex_unlock(&list->mutex);
+    UNLOCK(list->mutex);
     // exit(0);
     return 0;
 }
@@ -82,24 +116,17 @@ int size_list(int_ll_t *list)
 // Get element at index
 int index_list(int_ll_t *list, int index, int *out_value)
 {
-    pthread_mutex_lock(&list->mutex);
-
-    // printf("Getting el indice %d, tamanno de la lista %d\n", index, size);
-    // print_list(list);
-
+    LOCK(list->mutex);
     if (size == 0)
         *out_value = 0;
-
     else
     {
         int_ll_t *node = list->next;
         for (int i = 0; i < clamb_index(index); i++)
             node = node->next;
-
         *out_value = node->value;
     }
-    // printf("Obtenido %d\n", *out_value);
-    pthread_mutex_unlock(&list->mutex);
+    UNLOCK(list->mutex);
     return 0;
 }
 
@@ -107,35 +134,23 @@ int index_list(int_ll_t *list, int index, int *out_value)
 int insert_list(int_ll_t *list, int index, int value)
 {
 
-    pthread_mutex_lock(&list->mutex);
-    // printf("Insertando %d en el indice %d, tamanno de la lista %d\n", value, index, size);
-    // print_list(list);
+    LOCK(list->mutex);
     int_ll_t *node = list;
-
     for (int i = 0; i < clamb_index(index); i++)
         node = node->next;
-
     node->next = make_node(value, node->next);
     node->next->value = value;
     increase_size();
-    // print_list(list);
-    // printf("Insertado %d en el indice %d, tamanno de la lista %d\n", value, index, size);
-
-    pthread_mutex_unlock(&list->mutex);
+    UNLOCK(list->mutex);
     return 0;
 }
 
 // Remove element at index
 int remove_list(int_ll_t *list, int index, int *out_value)
 {
-    pthread_mutex_lock(&list->mutex);
-
-    // printf("Removiendo el indice %d, tamanno de la lista %d\n", index, size);
-    // print_list(list);
-
+    LOCK(list->mutex);
     if (size <= 0)
         *out_value = 1;
-
     else
     {
         int_ll_t *node = list;
@@ -146,12 +161,13 @@ int remove_list(int_ll_t *list, int index, int *out_value)
         int_ll_t *temp = node->next;
         node->next = node->next->next;
 
-        pthread_mutex_destroy(&temp->mutex);
+        DESTROY(temp->mutex);
+        free(temp->mutex);
         free(temp);
 
         decrease_size();
     }
 
-    pthread_mutex_unlock(&list->mutex);
+    UNLOCK(list->mutex);
     return 0;
 }

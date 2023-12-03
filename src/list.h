@@ -2,13 +2,18 @@
 #define INT_LL_H
 
 #include <pthread.h>
+#include <bits/types.h>
+
 // Integer Linked Lists
+typedef int ptlock_t;
+
 typedef struct _integer_linked_list_t
 {
     int value;
-    pthread_mutex_t mutex;
+    ptlock_t *mutex;
     struct _integer_linked_list_t *next;
 } int_ll_t;
+
 
 // Init list structure
 int init_list(int_ll_t *list);
