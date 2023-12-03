@@ -80,19 +80,18 @@ int size_list(int_ll_t *list)
 // Get element at index
 int index_list(int_ll_t *list, int index, int *out_value)
 {
-    pthread_mutex_lock(&list->mutex);
-
     if (size == 0)
-        *out_value = 0;
-
-    else
     {
-        int_ll_t *node = list->next;
-        for (int i = 0; i < clamb_index(index); i++)
-            node = node->next;
-
-        *out_value = node->value;
+        *out_value = 0;
+        return 0;
     }
+
+    pthread_mutex_lock(&list->mutex);
+    int_ll_t *node = list->next;
+    for (int i = 0; i < clamb_index(index); i++)
+        node = node->next;
+
+    *out_value = node->value;
 
     pthread_mutex_unlock(&list->mutex);
     return 0;
@@ -120,26 +119,25 @@ int insert_list(int_ll_t *list, int index, int value)
 // Remove element at index
 int remove_list(int_ll_t *list, int index, int *out_value)
 {
-    pthread_mutex_lock(&list->mutex);
 
     if (size <= 0)
-        *out_value = 1;
-
-    else
     {
-        int_ll_t *node = list;
-        for (int i = 0; i < clamb_index(index); i++)
-            node = node->next;
-
-        *out_value = node->next->value;
-        int_ll_t *temp = node->next;
-        node->next = node->next->next;
-
-        pthread_mutex_destroy(&temp->mutex);
-        free(temp);
-
-        decrease_size();
+        *out_value = 1;
+        return 0;
     }
+    pthread_mutex_lock(&list->mutex);
+    int_ll_t *node = list;
+    for (int i = 0; i < clamb_index(index); i++)
+        node = node->next;
+
+    *out_value = node->next->value;
+    int_ll_t *temp = node->next;
+    node->next = node->next->next;
+
+    pthread_mutex_destroy(&temp->mutex);
+    free(temp);
+
+    decrease_size();
 
     pthread_mutex_unlock(&list->mutex);
     return 0;
