@@ -4,36 +4,12 @@
 #include <pthread.h>
 
 int size = 0;
-pthread_mutex_t mutex_size = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int clamb_index(int index)
 {
     return (index < 0) ? 0 : (index >= size) ? size - 1
                                              : index;
-}
-void increase_size()
-{
-    pthread_mutex_lock(&mutex_size);
-    size++;
-    pthread_mutex_unlock(&mutex_size);
-}
-
-void decrease_size()
-{
-    pthread_mutex_lock(&mutex_size);
-    size--;
-    pthread_mutex_unlock(&mutex_size);
-}
-
-void print_list(int_ll_t *list)
-{
-    int_ll_t *node = list;
-    for (int i = 0; i < size + 1; i++)
-    {
-        printf("%d ", node->value);
-        node = node->next;
-    }
-    printf("\n");
 }
 
 int_ll_t *make_node(int value, int_ll_t *next)
@@ -41,13 +17,13 @@ int_ll_t *make_node(int value, int_ll_t *next)
     int_ll_t *node = (int_ll_t *)malloc(sizeof(int_ll_t));
     node->value = value;
     node->next = next;
-    pthread_mutex_init(&node->mutex, NULL);
     return node;
 }
 
 // Init list structure
 int init_list(int_ll_t *list)
 {
+    pthread_mutex_init(&mutex, NULL);
     list = make_node(1, NULL);
     return 0;
 }
@@ -55,18 +31,17 @@ int init_list(int_ll_t *list)
 // Free list structure
 int free_list(int_ll_t *list)
 {
-    pthread_mutex_lock(&list->mutex);
+    pthread_mutex_lock(&mutex);
 
     int_ll_t *node = list;
     while (node != NULL)
     {
         int_ll_t *next = node->next;
-        pthread_mutex_destroy(&node->mutex);
         free(node);
         node = next;
     }
     size = 0;
-    pthread_mutex_unlock(&list->mutex);
+    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -82,18 +57,18 @@ int index_list(int_ll_t *list, int index, int *out_value)
 {
     if (size == 0)
     {
-        *out_value = 0;
-        return 0;
+        *out_value = 1;
+        return 1;
     }
 
-    pthread_mutex_lock(&list->mutex);
+    pthread_mutex_lock(&mutex);
     int_ll_t *node = list->next;
     for (int i = 0; i < clamb_index(index); i++)
         node = node->next;
 
     *out_value = node->value;
 
-    pthread_mutex_unlock(&list->mutex);
+    pthread_mutex_unlock(&mutex);
     return 0;
 }
 
@@ -101,7 +76,7 @@ int index_list(int_ll_t *list, int index, int *out_value)
 int insert_list(int_ll_t *list, int index, int value)
 {
 
-    pthread_mutex_lock(&list->mutex);
+    pthread_mutex_lock(&mutex);
 
     int_ll_t *node = list;
 
@@ -110,22 +85,21 @@ int insert_list(int_ll_t *list, int index, int value)
 
     node->next = make_node(value, node->next);
     node->next->value = value;
-    increase_size();
+    size++;
 
-    pthread_mutex_unlock(&list->mutex);
+    pthread_mutex_unlock(&mutex);
     return 0;
 }
 
 // Remove element at index
 int remove_list(int_ll_t *list, int index, int *out_value)
 {
-
     if (size <= 0)
     {
         *out_value = 1;
-        return 0;
+        return 1;
     }
-    pthread_mutex_lock(&list->mutex);
+    pthread_mutex_lock(&mutex);
     int_ll_t *node = list;
     for (int i = 0; i < clamb_index(index); i++)
         node = node->next;
@@ -133,12 +107,8 @@ int remove_list(int_ll_t *list, int index, int *out_value)
     *out_value = node->next->value;
     int_ll_t *temp = node->next;
     node->next = node->next->next;
-
-    pthread_mutex_destroy(&temp->mutex);
     free(temp);
-
-    decrease_size();
-
-    pthread_mutex_unlock(&list->mutex);
+    size--;
+    pthread_mutex_unlock(&mutex);
     return 0;
 }
